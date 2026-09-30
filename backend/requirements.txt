@@ -1,0 +1,24 @@
+# --- Web API ---
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+pydantic>=2.7,<3
+python-dotenv==1.0.1
+
+# --- Document parsing ---
+pdfplumber==0.11.4
+
+# --- RAG: embeddings + vector DB + LLM ---
+sentence-transformers==3.1.1
+chromadb==0.5.15
+google-genai>=1.20.0  # official SDK (google-generativeai is deprecated)
+
+# --- Optional: OCR for scanned PDFs (also needs the Tesseract binary installed) ---
+# pytesseract==0.3.13
+
+# --- Testing ---
+# Left unpinned on purpose: chromadb needs httpx>=0.27.0, google-genai needs
+# httpx>=0.28.1. Pinning to an exact version (e.g. 0.27.2) makes pip's resolver
+# fail since it can't satisfy both constraints with one fixed version.
+httpx>=0.28.1
+pytest==8.3.3
