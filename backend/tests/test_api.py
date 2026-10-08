@@ -1,3 +1,4 @@
+"""End-to-end API tests (fake embedder + fake Gemini). Tests run in file order and share one uploaded document."""
 import pytest
 
 STATE = {}

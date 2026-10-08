@@ -1,3 +1,11 @@
+"""
+Shared pytest fixtures.
+
+The tests never call the real Gemini API and never download an embedding model:
+- `sentence_transformers` is replaced by a tiny deterministic hashing embedder,
+- Gemini calls are replaced by a fake model.
+Every test run uses a temporary storage folder, so your real data is untouched.
+"""
 import math
 import re
 import sys

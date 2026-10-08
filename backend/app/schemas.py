@@ -41,7 +41,7 @@ class DocumentInfo(BaseModel):
 
 class UploadResponse(DocumentInfo):
     duplicate: bool = False
-    entity_counts: Dict[str, int] = {}
+    entity_counts: Dict[str, int] = Field(default_factory=dict)
 
 
 # Query / Q&A

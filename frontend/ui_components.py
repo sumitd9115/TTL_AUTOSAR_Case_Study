@@ -88,9 +88,9 @@ def render_consistency_findings(findings: List[Dict[str, Any]]) -> None:
 def document_picker(documents: List[Dict[str, Any]], label: str, key: str, allow_empty: bool = True):
     """A selectbox mapping 'filename (doc_id)' -> doc_id. Returns None if no selection."""
     if not documents:
-        st.info("No documents uploaded yet. Upload one from the Chat & Upload tab first.")
+        st.info("No documents uploaded yet. Upload one from the sidebar first.")
         return None
-    options = {f"{d['filename']}  ·  {d['doc_id']}": d["doc_id"] for d in documents}
+    options = {f"{d['filename']}  |  {d['doc_id']}": d["doc_id"] for d in documents}
     labels = list(options.keys())
     if allow_empty:
         labels = ["-- select a document --"] + labels

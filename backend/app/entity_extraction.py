@@ -1,3 +1,17 @@
+"""
+Structured architecture knowledge extraction (no LLM required).
+
+An HLD's most reliable facts live in tables (component inventories, port lists,
+runnable schedules, issue logs). We recognise those tables by their header
+signature and turn every row into a typed entity. This is deterministic, free
+(no Gemini quota) and citation-safe - each entity keeps its page and section.
+
+Also provided here:
+- extract_dependencies    : infers "A depends on B" relations from prose
+- run_consistency_checks  : flags potential mismatches / missing information
+- compare_entity_sets     : revision comparison between two documents
+- entities_to_csv         : flat export for downstream tools
+"""
 import csv
 import io
 import re
@@ -29,7 +43,10 @@ def _classify(header_slugs: List[str]):
             return entity_type, name_col
     return None, None
 
+
+# ---------------------------------------------------------------------------
 # Table -> entities
+# ---------------------------------------------------------------------------
 def extract_entities(structured_tables: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     entities: List[Dict[str, Any]] = []
     for table in structured_tables:
@@ -67,7 +84,10 @@ def extract_entities(structured_tables: List[Dict[str, Any]]) -> List[Dict[str, 
             )
     return entities
 
-# Prose -> dependencie
+
+# ---------------------------------------------------------------------------
+# Prose -> dependencies
+# ---------------------------------------------------------------------------
 def extract_dependencies(
     chunks: List[Dict[str, Any]], component_names: List[str]
 ) -> List[Dict[str, Any]]:
@@ -116,7 +136,10 @@ def extract_dependencies(
                     }
     return list(found.values())
 
-# Consistency / completeness check
+
+# ---------------------------------------------------------------------------
+# Consistency / completeness checks
+# ---------------------------------------------------------------------------
 def run_consistency_checks(entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Deterministic checks that surface potential mismatches for engineer review."""
     findings: List[Dict[str, Any]] = []
@@ -181,7 +204,10 @@ def run_consistency_checks(entities: List[Dict[str, Any]]) -> List[Dict[str, Any
 
     return findings
 
-# Revision compariso
+
+# ---------------------------------------------------------------------------
+# Revision comparison
+# ---------------------------------------------------------------------------
 def compare_entity_sets(
     entities_a: List[Dict[str, Any]], entities_b: List[Dict[str, Any]]
 ) -> Dict[str, Any]:
@@ -206,7 +232,10 @@ def compare_entity_sets(
             unchanged += 1
     return {"added": added, "removed": removed, "changed": changed, "unchanged_count": unchanged}
 
-# Expor
+
+# ---------------------------------------------------------------------------
+# Export
+# ---------------------------------------------------------------------------
 def entities_to_csv(entities: List[Dict[str, Any]]) -> str:
     import json
 

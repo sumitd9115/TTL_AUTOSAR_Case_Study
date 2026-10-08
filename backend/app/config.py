@@ -36,7 +36,7 @@ APP_VERSION = "1.0.0"
 # Model
 EMBEDDING_MODEL_NAME = os.environ.get("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")
 
-GEMINI_MODEL_NAME = os.environ.get("GEMINI_MODEL_NAME", "gemini-flash-latest")
+GEMINI_MODEL_NAME = os.environ.get("GEMINI_MODEL_NAME", "gemini-3.5-flash")
 GEMINI_API_KEY_ENV = os.environ.get("GEMINI_API_KEY", "")  # optional dev fallback
 LLM_TEMPERATURE = 0.1          # low = factual, deterministic answers
 LLM_MAX_OUTPUT_TOKENS = 4096  # headroom: newer Gemini models may spend tokens on internal reasoning

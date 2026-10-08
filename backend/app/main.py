@@ -1,3 +1,27 @@
+"""
+FastAPI application entrypoint.
+
+Run from the `backend/` folder:
+    uvicorn app.main:app --reload --port 8000
+Interactive API docs: http://localhost:8000/docs
+
+Endpoints
+---------
+GET    /health
+POST   /configure
+POST   /documents/upload
+GET    /documents
+GET    /documents/{doc_id}
+DELETE /documents/{doc_id}
+GET    /documents/{doc_id}/entities?entity_type=
+GET    /documents/{doc_id}/consistency
+GET    /documents/{doc_id}/components/{name}/report
+GET    /documents/{doc_id}/export?format=json|csv
+GET    /documents/{doc_id}/history
+POST   /query
+POST   /compare
+GET    /audit
+"""
 import logging
 import re
 import uuid
@@ -11,7 +35,9 @@ from fastapi.responses import JSONResponse, Response
 
 from . import config, document_store, entity_extraction, ingestion, rag_pipeline, schemas
 
+# ---------------------------------------------------------------------------
 # Logging
+# ---------------------------------------------------------------------------
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL.upper(), logging.INFO),
     format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
@@ -20,7 +46,9 @@ logging.basicConfig(
 logger = logging.getLogger("app.main")
 
 
+# ---------------------------------------------------------------------------
 # App lifecycle
+# ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     document_store.init_db()
@@ -43,7 +71,9 @@ app.add_middleware(
 )
 
 
+# ---------------------------------------------------------------------------
 # Error handling: domain errors -> proper HTTP status codes
+# ---------------------------------------------------------------------------
 @app.exception_handler(rag_pipeline.LLMNotConfiguredError)
 async def _not_configured_handler(_request, exc):
     return JSONResponse(status_code=400, content={"detail": str(exc)})
@@ -66,7 +96,9 @@ def _require_document(doc_id: str) -> dict:
     return doc
 
 
+# ---------------------------------------------------------------------------
 # System
+# ---------------------------------------------------------------------------
 @app.get("/health", response_model=schemas.HealthResponse, tags=["system"])
 def health():
     return schemas.HealthResponse(
@@ -87,7 +119,9 @@ def configure(req: schemas.ConfigureRequest):
     return schemas.ConfigureResponse(status="configured", model=config.GEMINI_MODEL_NAME)
 
 
+# ---------------------------------------------------------------------------
 # Documents
+# ---------------------------------------------------------------------------
 def _read_upload_with_limit(file: UploadFile, destination: Path) -> None:
     """Stream the upload to disk while enforcing the size limit and PDF magic bytes."""
     limit = config.MAX_UPLOAD_MB * 1024 * 1024
@@ -207,7 +241,9 @@ def delete_document(doc_id: str):
     return {"status": "deleted", "doc_id": doc_id}
 
 
+# ---------------------------------------------------------------------------
 # Structured architecture knowledge
+# ---------------------------------------------------------------------------
 @app.get("/documents/{doc_id}/entities", response_model=schemas.EntityListResponse, tags=["architecture"])
 def get_entities(doc_id: str, entity_type: Optional[str] = Query(default=None)):
     _require_document(doc_id)
@@ -270,7 +306,9 @@ def export_document(doc_id: str, format: str = Query(default="json", pattern="^(
     }
 
 
+# ---------------------------------------------------------------------------
 # Q&A
+# ---------------------------------------------------------------------------
 @app.post("/query", response_model=schemas.QueryResponse, tags=["qa"])
 def query_document(req: schemas.QueryRequest):
     _require_document(req.doc_id)
@@ -288,7 +326,9 @@ def chat_history(doc_id: str, limit: int = Query(default=50, ge=1, le=500)):
     return document_store.get_chat_history(doc_id, limit)
 
 
+# ---------------------------------------------------------------------------
 # Revision comparison
+# ---------------------------------------------------------------------------
 @app.post("/compare", response_model=schemas.CompareResponse, tags=["architecture"])
 def compare_documents(req: schemas.CompareRequest):
     doc_a, doc_b = _require_document(req.doc_id_a), _require_document(req.doc_id_b)
@@ -299,7 +339,9 @@ def compare_documents(req: schemas.CompareRequest):
     return schemas.CompareResponse(doc_a=doc_a["filename"], doc_b=doc_b["filename"], **diff)
 
 
+# ---------------------------------------------------------------------------
 # Audit
+# ---------------------------------------------------------------------------
 @app.get("/audit", response_model=List[schemas.AuditItem], tags=["system"])
 def audit_log(limit: int = Query(default=100, ge=1, le=1000)):
     return document_store.get_audit_log(limit)

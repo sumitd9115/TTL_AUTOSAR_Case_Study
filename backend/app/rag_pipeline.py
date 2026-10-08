@@ -1,3 +1,15 @@
+"""
+Retrieval-Augmented Generation pipeline.
+
+- Embeddings : sentence-transformers, local (no API cost, no data leaves the machine)
+- Vector DB  : ChromaDB, persistent, one collection per document, cosine distance
+- Retrieval  : vector search + identifier-aware re-ranking (engineering documents are
+               full of exact names like CentralLockingMgr or ISS-014 that pure semantic
+               search can under-rank)
+- Generation : Gemini, grounded strictly on retrieved context, with retry/backoff
+- Guardrails : refuses to call the LLM when evidence is too weak (saves quota and
+               prevents hallucinated answers); document text is treated as untrusted data
+"""
 import logging
 import re
 import time
@@ -13,7 +25,9 @@ from . import config
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
 # Errors (mapped to HTTP status codes in main.py)
+# ---------------------------------------------------------------------------
 class LLMNotConfiguredError(Exception):
     """Raised when an LLM call is needed but no Gemini API key has been set."""
 
@@ -26,7 +40,9 @@ class LLMGenerationError(Exception):
     """Raised when Gemini fails after retries or blocks/returns empty output."""
 
 
+# ---------------------------------------------------------------------------
 # Lazy singletons
+# ---------------------------------------------------------------------------
 _state: Dict[str, Any] = {"embedder": None, "chroma": None, "client": None, "gemini_configured": False}
 
 
@@ -51,7 +67,9 @@ def is_gemini_configured() -> bool:
     return bool(_state["gemini_configured"])
 
 
+# ---------------------------------------------------------------------------
 # Gemini configuration
+# ---------------------------------------------------------------------------
 def configure_gemini(api_key: str, validate: bool = True) -> None:
     """Create the Gemini client. With validate=True, lists models to verify the key (no generation quota used)."""
     client = genai.Client(api_key=api_key)
@@ -65,7 +83,9 @@ def configure_gemini(api_key: str, validate: bool = True) -> None:
     logger.info("Gemini configured (model=%s)", config.GEMINI_MODEL_NAME)
 
 
+# ---------------------------------------------------------------------------
 # Indexing
+# ---------------------------------------------------------------------------
 def index_chunks(doc_id: str, chunks: List[Dict[str, Any]]) -> int:
     """Embed chunks and store them in a fresh, document-specific collection."""
     client = get_chroma_client()
@@ -106,7 +126,9 @@ def delete_collection(doc_id: str) -> None:
         logger.debug("No collection to delete for %s", doc_id)
 
 
+# ---------------------------------------------------------------------------
 # Retrieval
+# ---------------------------------------------------------------------------
 # Matches: BCM_DiagMgr, CentralLockingMgr, ISS-014, HLD-BCM-2026, 0xF190, Rte_Wiper_20ms
 IDENTIFIER_RE = re.compile(
     r"\b(?:[A-Za-z]+_[A-Za-z0-9_]+|[A-Z][a-z]+(?:[A-Z][a-z0-9]+)+|[A-Z]{2,}-[A-Z0-9\-]+|0x[0-9A-Fa-f]+)\b"
@@ -175,7 +197,9 @@ def _citations(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return citations
 
 
+# ---------------------------------------------------------------------------
 # Generation
+# ---------------------------------------------------------------------------
 SYSTEM_RULES = """You are an assistant that helps automotive engineers understand an AUTOSAR High-Level Design (HLD) document.
 
 STRICT RULES
@@ -269,7 +293,9 @@ def answer_question(doc_id: str, question: str, top_k: int = config.DEFAULT_TOP_
     }
 
 
+# ---------------------------------------------------------------------------
 # Component report (structured facts + retrieved evidence -> LLM narrative)
+# ---------------------------------------------------------------------------
 def build_component_facts(component: str, entities: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Deterministically assemble everything the document tables say about one component."""
     lowered = component.lower()

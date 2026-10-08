@@ -1,3 +1,20 @@
+"""
+Document ingestion for the AUTOSAR HLD Document Analysis Assistant.
+
+Pipeline
+--------
+1. extract_pdf_content : per page -> text lines (with y-position and font size) and tables
+                         (with y-position). Falls back to OCR for scanned pages.
+2. build_chunks        : walks each page top-to-bottom, so every paragraph and every table
+                         is attached to the *closest heading above it*. Produces
+                         retrieval chunks plus the raw structured tables that the entity
+                         extractor consumes.
+
+Why position-aware? A page can hold several headings and several tables
+(e.g. "3.1 CentralLockingMgr Ports", "3.2 WindowLiftMgr Ports"). Assigning
+"the last heading on the page" to every table would mislabel them and break
+port-to-component ownership. Sorting by vertical position avoids that.
+"""
 import hashlib
 import logging
 import re
@@ -6,7 +23,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pdfplumber
-
 from . import config
 
 logger = logging.getLogger(__name__)
@@ -14,10 +30,9 @@ logger = logging.getLogger(__name__)
 # Optional OCR dependencies - ingestion still works without them.
 try:  # pragma: no cover - depends on the local machine
     import pytesseract
-
     _OCR_AVAILABLE = True
 except ImportError:  # pragma: no cover
-    pytesseract = None
+    pytesseract = None  # type: ignore[assignment]
     _OCR_AVAILABLE = False
 
 HEADING_NUMBERED = re.compile(r"^\d+(?:\.\d+)*\.?\s+\S.{1,78}$")
@@ -25,7 +40,10 @@ DOC_ID_PATTERN = re.compile(r"Document\s*ID\s*:\s*([A-Za-z0-9._\-]+)", re.IGNORE
 
 INITIAL_SECTION = "Document Start"
 
+
+# ---------------------------------------------------------------------------
 # Helpers
+# ---------------------------------------------------------------------------
 def compute_file_hash(file_path: str) -> str:
     """SHA-256 of the file, used to detect duplicate uploads."""
     sha = hashlib.sha256()
@@ -59,7 +77,9 @@ def _ocr_page(page) -> List[Dict[str, Any]]:  # pragma: no cover - needs tessera
     return [{"text": ln, "top": float(i) * 10.0, "size": None} for i, ln in enumerate(lines)]
 
 
+# ---------------------------------------------------------------------------
 # Step 1: extraction
+# ---------------------------------------------------------------------------
 def extract_pdf_content(file_path: str) -> List[Dict[str, Any]]:
     """
     Returns one dict per page:
@@ -125,7 +145,9 @@ def extract_document_metadata(pages: List[Dict[str, Any]]) -> Dict[str, Optional
     }
 
 
+# ---------------------------------------------------------------------------
 # Step 2: chunking
+# ---------------------------------------------------------------------------
 def _is_heading(text: str, size: Optional[float], body_size: Optional[float]) -> bool:
     """A heading is short, doesn't end like a sentence, and is numbered or visibly larger."""
     if len(text) > 80 or text.endswith((".", ",", ";", ":")):
